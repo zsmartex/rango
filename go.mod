@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/twmb/franz-go v1.4.2
-	github.com/zsmartex/pkg v1.3.59
+	github.com/zsmartex/pkg v1.3.81
 )
 
 require (
