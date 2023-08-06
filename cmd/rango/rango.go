@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/zsmartex/pkg/services"
+	"github.com/zsmartex/pkg/v2/utils"
 	"github.com/zsmartex/rango/config"
 	"github.com/zsmartex/rango/pkg/auth"
 	"github.com/zsmartex/rango/pkg/metrics"
@@ -162,7 +162,7 @@ func main() {
 	}
 
 	kafka_brokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
-	consumer, err := services.NewKafkaConsumer(kafka_brokers, fmt.Sprintf("rango-%s", uuid.NewString()), []string{*exName})
+	consumer, err := services.NewKafkaConsumer(kafka_brokers, fmt.Sprintf("rango-%s", utils.RandomString(10)), []string{*exName})
 	if err != nil {
 		log.Error().Msgf("Failed to create consumer: %s", err.Error())
 		return
