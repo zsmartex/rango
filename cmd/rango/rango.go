@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rsa"
 	"flag"
 	"fmt"
@@ -10,12 +11,10 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/twmb/franz-go/pkg/kgo"
 
-	"github.com/zsmartex/pkg/services"
+	"github.com/zsmartex/pkg/v2/log"
 	"github.com/zsmartex/pkg/v2/utils"
-	"github.com/zsmartex/rango/config"
 	"github.com/zsmartex/rango/pkg/auth"
 	"github.com/zsmartex/rango/pkg/metrics"
 	"github.com/zsmartex/rango/pkg/routing"
@@ -57,23 +56,7 @@ func authHandler(h httpHanlder, key *rsa.PublicKey, mustAuth bool) httpHanlder {
 			r.Header.Del("JwtRole")
 		}
 		h(w, r)
-		return
 	}
-}
-
-func setupLogger() {
-	logLevel, ok := os.LookupEnv("LOG_LEVEL")
-	if ok {
-		level, err := zerolog.ParseLevel(strings.ToLower(logLevel))
-		if err != nil {
-			panic(err)
-		}
-
-		zerolog.SetGlobalLevel(level)
-		return
-	}
-
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 }
 
 func getPublicKey() (pub *rsa.PublicKey, err error) {
@@ -146,46 +129,55 @@ func filterPrefixed(prefix string, arr []string) []string {
 }
 
 func main() {
+	log.New(os.Getenv("APP_NAME"))
 	flag.Parse()
 
-	setupLogger()
-
 	metrics.Enable()
-
+	ctx := context.Background()
 	rbac := getRBACConfig()
 	hub := routing.NewHub(rbac)
 	pub, err := getPublicKey()
 	if err != nil {
-		log.Error().Msgf("Loading public key failed: %s", err.Error())
+		log.Errorf("Loading public key failed: %s", err.Error())
 		time.Sleep(2 * time.Second)
 		return
 	}
 
-	kafka_brokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
-	consumer, err := services.NewKafkaConsumer(kafka_brokers, fmt.Sprintf("rango-%s", utils.RandomString(10)), []string{*exName})
+	kafkaBrokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
+	seeds := kgo.SeedBrokers(kafkaBrokers...)
+	client, err := kgo.NewClient(
+		seeds,
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()),
+		kgo.AllowAutoTopicCreation(),
+		kgo.ConsumerGroup(fmt.Sprintf("rango-%s", utils.RandomString(10))),
+		kgo.ConsumeTopics(*exName),
+		kgo.DisableAutoCommit(),
+	)
 	if err != nil {
-		log.Error().Msgf("Failed to create consumer: %s", err.Error())
+		log.Errorf("Failed to create consumer: %s", err.Error())
 		return
 	}
 
-	log.Info().Msg("Starting rango...")
+	log.Info("Starting rango...")
 
 	go func() {
 		for {
-			records, err := consumer.Poll()
-			if err != nil {
-				config.Logger.Fatalf("Failed to poll consumer %v", err)
+			fetches := client.PollRecords(ctx, -1)
+			if err := fetches.Err(); err != nil {
+				log.Fatalf("Failed to poll consumer %v", err)
+				continue
 			}
 
+			records := fetches.Records()
 			for _, r := range records {
 				hub.ReceiveMsg(r)
 
-				consumer.CommitRecords(*r)
+				client.CommitRecords(ctx, r)
 			}
 		}
 	}()
 
-	defer consumer.Client.Close()
+	defer client.Close()
 
 	go hub.ListenWebsocketEvents()
 
@@ -199,9 +191,9 @@ func main() {
 
 	go http.ListenAndServe(":4242", promhttp.Handler())
 
-	log.Printf("Listenning on %s", getServerAddress())
+	log.Infof("Listenning on %s", getServerAddress())
 	err = http.ListenAndServe(getServerAddress(), nil)
 	if err != nil {
-		log.Fatal().Msg("ListenAndServe failed: " + err.Error())
+		log.Fatalf("ListenAndServe failed: " + err.Error())
 	}
 }

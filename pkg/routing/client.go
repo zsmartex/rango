@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zsmartex/pkg/v2/log"
+
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
 	msg "github.com/zsmartex/rango/pkg/message"
 	"github.com/zsmartex/rango/pkg/metrics"
 )
@@ -120,7 +121,7 @@ func checkSameOrigin(origins string) func(r *http.Request) bool {
 func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Error().Msg("Websocket upgrade failed: " + err.Error())
+		log.Error("Websocket upgrade failed: " + err.Error())
 		return
 	}
 	client := &Client{
@@ -136,9 +137,9 @@ func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if client.Auth.UID == "" {
-		log.Info().Msgf("New anonymous connection")
+		log.Info("New anonymous connection")
 	} else {
-		log.Info().Msgf("New authenticated connection: %s", client.Auth.UID)
+		log.Infof("New authenticated connection: %s", client.Auth.UID)
 	}
 
 	hub.handleSubscribe(&Request{
@@ -158,7 +159,7 @@ func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 func (c *Client) Send(s string) {
 	if len(c.send) == maxBufferedMessages {
-		log.Warn().Msg("Closing slow websocket connection")
+		log.Warn("Closing slow websocket connection")
 		c.conn.Close()
 	} else {
 		c.send <- []byte(s)
@@ -237,7 +238,7 @@ func parseStreamsFromURI(uri string) []string {
 // reads from this goroutine.
 func (c *Client) read() {
 	defer func() {
-		log.Debug().Msgf("Closing client read (%s)", c.GetAuth().UID)
+		log.Debugf("Closing client read (%s)", c.GetAuth().UID)
 		c.hub.Unregister <- c
 		metrics.RecordHubClientClose()
 		c.conn.Close()
@@ -254,7 +255,7 @@ func (c *Client) read() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Info().Msgf("error: %v", err)
+				log.Infof("error: %v", err)
 			}
 			break
 		}
@@ -262,9 +263,7 @@ func (c *Client) read() {
 		if len(message) == 0 {
 			continue
 		}
-		if isDebug() {
-			log.Debug().Msgf("Received message %s", message)
-		}
+		log.Debugf("Received message %s", message)
 
 		// handle ping
 		if string(message) == "ping" {
@@ -290,7 +289,7 @@ func (c *Client) read() {
 func (c *Client) write() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
-		log.Debug().Msgf("Closing client write (%s)", c.GetAuth().UID)
+		log.Debugf("Closing client write (%s)", c.GetAuth().UID)
 		ticker.Stop()
 		c.conn.Close()
 	}()

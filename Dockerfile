@@ -1,4 +1,4 @@
-FROM golang:1.18.1-alpine AS builder
+FROM golang:1.20.5-alpine AS builder
 
 RUN apk add --no-cache curl git
 
@@ -8,9 +8,10 @@ RUN curl -Lo /usr/bin/kaigara https://github.com/openware/kaigara/releases/downl
   && chmod +x /usr/bin/kaigara
 
 WORKDIR /build
-ENV CGO_ENABLED=1 \
-  GOOS=linux \
-  GOARCH=amd64
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOARCH="amd64" \
+    GOOS=linux
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -19,7 +20,7 @@ COPY . .
 RUN go build ./cmd/rango
 
 
-FROM alpine:3.9
+FROM alpine
 
 RUN apk add ca-certificates
 WORKDIR app

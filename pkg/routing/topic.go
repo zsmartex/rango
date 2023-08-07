@@ -3,8 +3,7 @@ package routing
 import (
 	"encoding/json"
 
-	"github.com/rs/zerolog/log"
-	"github.com/zsmartex/rango/config"
+	"github.com/zsmartex/pkg/v2/log"
 	msg "github.com/zsmartex/rango/pkg/message"
 )
 
@@ -23,7 +22,7 @@ func NewTopic(h *Hub) *Topic {
 func eventMust(method string, data interface{}) []byte {
 	ev, err := msg.PackOutgoingEvent(method, data)
 	if err != nil {
-		log.Panic().Msg(err.Error())
+		log.Panic(err.Error())
 	}
 
 	return ev
@@ -46,7 +45,7 @@ func (t *Topic) broadcast(message *Event) {
 	var bodyMsg interface{}
 
 	if err := json.Unmarshal(message.Body, &bodyMsg); err != nil {
-		config.Logger.Errorf("Fail to JSON marshal: %s", err.Error())
+		log.Errorf("Fail to JSON marshal: %s", err.Error())
 		return
 	}
 
@@ -55,7 +54,7 @@ func (t *Topic) broadcast(message *Event) {
 	})
 
 	if err != nil {
-		config.Logger.Errorf("Fail to JSON marshal: %s", err.Error())
+		log.Errorf("Fail to JSON marshal: %s", err.Error())
 		return
 	}
 

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/zsmartex/pkg/v2/log"
+
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	msg "github.com/zsmartex/rango/pkg/message"
@@ -61,14 +61,6 @@ func NewHub(rbac map[string][]string) *Hub {
 	}
 }
 
-func isDebug() bool {
-	return log.Logger.GetLevel() <= zerolog.DebugLevel
-}
-
-func isTrace() bool {
-	return log.Logger.GetLevel() <= zerolog.TraceLevel
-}
-
 func getTopic(scope, stream, typ string) string {
 	if scope == "private" {
 		return typ
@@ -83,7 +75,7 @@ func (h *Hub) ListenWebsocketEvents() {
 			h.handleRequest(&req)
 
 		case client := <-h.Unregister:
-			log.Info().Msgf("Unregistering client (%s)", client.GetAuth().UID)
+			log.Infof("Unregistering client (%s)", client.GetAuth().UID)
 			h.unsubscribeAll(client)
 			client.Close()
 		}
@@ -105,9 +97,7 @@ func (h *Hub) ReceiveMsg(msg *kgo.Record) {
 }
 
 func (h *Hub) routeMessage(msg *Event) {
-	if isTrace() {
-		log.Trace().Msgf("Routing message %v", msg)
-	}
+	log.Tracef("Routing message %v", msg)
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -119,10 +109,8 @@ func (h *Hub) routeMessage(msg *Event) {
 		}
 
 		if !ok {
-			if isTrace() {
-				log.Trace().Msgf("No public registration to %s", msg.Topic)
-				log.Trace().Msgf("Public topics: %v", h.PublicTopics)
-			}
+			log.Tracef("No public registration to %s", msg.Topic)
+			log.Tracef("Public topics: %v", h.PublicTopics)
 		}
 
 	case "private":
@@ -135,10 +123,8 @@ func (h *Hub) routeMessage(msg *Event) {
 				break
 			}
 		}
-		if isTrace() {
-			log.Trace().Msgf("No private registration to %s", msg.Topic)
-			log.Trace().Msgf("Private topics: %v", h.PrivateTopics)
-		}
+		log.Tracef("No private registration to %s", msg.Topic)
+		log.Tracef("Private topics: %v", h.PrivateTopics)
 
 	default:
 		scope, ok := h.PrefixedTopics[msg.Scope]
@@ -153,7 +139,7 @@ func (h *Hub) routeMessage(msg *Event) {
 
 		topic.broadcast(msg)
 
-		log.Trace().Msgf("Broadcasted message scope %s", msg.Scope)
+		log.Tracef("Broadcasted message scope %s", msg.Scope)
 	}
 
 }
@@ -211,7 +197,7 @@ func (h *Hub) unsubscribeAll(client IClient) {
 func responseMust(e error, r interface{}) string {
 	res, err := msg.PackOutgoingResponse(e, r)
 	if err != nil {
-		log.Panic().Msg("responseMust failed:" + err.Error())
+		log.Panic("responseMust failed:" + err.Error())
 		panic(err.Error())
 	}
 
@@ -239,7 +225,7 @@ func (h *Hub) handleRequest(req *Request) {
 func (h *Hub) subscribePrivate(t string, req *Request) {
 	uid := req.client.GetAuth().UID
 	if uid == "" {
-		log.Error().Msgf("Anonymous user tried to subscribe to private stream %s", t)
+		log.Errorf("Anonymous user tried to subscribe to private stream %s", t)
 		return
 	}
 
