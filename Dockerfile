@@ -1,4 +1,4 @@
-FROM golang:1.20.5-alpine AS builder
+FROM golang:1.21.3-alpine AS builder
 
 RUN apk add --no-cache curl git
 
@@ -23,9 +23,12 @@ RUN go build ./cmd/rango
 FROM alpine
 
 RUN apk add ca-certificates
-WORKDIR app
+
+WORKDIR /app
+
 COPY --from=builder /build/rango ./
 COPY --from=builder /usr/bin/kaigara /usr/bin/kaigara
+
 RUN mkdir -p /app/config
 
 CMD ["./rango"]

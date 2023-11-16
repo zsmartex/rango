@@ -3,61 +3,50 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/fx"
 )
 
-var defaultMetrics *Metrics
+var Module = fx.Module("metrics",
+	fx.Provide(
+		NewMetrics,
+	),
+)
 
 type Metrics struct {
 	clients prometheus.Gauge
 	subs    *prometheus.GaugeVec
 }
 
-func Enable() {
-	defaultMetrics = &Metrics{}
-	registerMetrics()
-}
-
-func registerMetrics() {
-	defaultMetrics.clients = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "rango_hub_clients_count",
-			Help: "Number of clients currently connected",
-		},
-	)
-
-	defaultMetrics.subs = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "rango_hub_subscriptions_count",
-			Help: "Number of user subscribed to a topic",
-		},
-		[]string{"type", "topic"},
-	)
-}
-
-func RecordHubClientNew() {
-	if defaultMetrics == nil {
-		return
+func NewMetrics() *Metrics {
+	return &Metrics{
+		clients: promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "rango_hub_clients_count",
+				Help: "Number of clients currently connected",
+			},
+		),
+		subs: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "rango_hub_subscriptions_count",
+				Help: "Number of user subscribed to a topic",
+			},
+			[]string{"type", "topic"},
+		),
 	}
-	defaultMetrics.clients.Inc()
 }
 
-func RecordHubClientClose() {
-	if defaultMetrics == nil {
-		return
-	}
-	defaultMetrics.clients.Dec()
+func (m *Metrics) RecordHubClientNew() {
+	m.clients.Inc()
 }
 
-func RecordHubSubscription(typ, topic string) {
-	if defaultMetrics == nil {
-		return
-	}
-	defaultMetrics.subs.WithLabelValues(typ, topic).Inc()
+func (m *Metrics) RecordHubClientClose() {
+	m.clients.Dec()
 }
 
-func RecordHubUnsubscription(typ, topic string) {
-	if defaultMetrics == nil {
-		return
-	}
-	defaultMetrics.subs.WithLabelValues(typ, topic).Dec()
+func (m *Metrics) RecordHubSubscription(typ, topic string) {
+	m.subs.WithLabelValues(typ, topic).Inc()
+}
+
+func (m *Metrics) RecordHubUnsubscription(typ, topic string) {
+	m.subs.WithLabelValues(typ, topic).Dec()
 }

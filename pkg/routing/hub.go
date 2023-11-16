@@ -5,10 +5,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/zsmartex/pkg/v2/log"
 
-	"github.com/twmb/franz-go/pkg/kgo"
-
+	"github.com/zsmartex/rango/config"
 	msg "github.com/zsmartex/rango/pkg/message"
 	"github.com/zsmartex/rango/pkg/metrics"
 )
@@ -37,7 +37,10 @@ type Hub struct {
 	PrefixedTopics map[string]map[string]*Topic
 
 	// map[prefix -> allowed roles]
-	RBAC map[string][]string
+	Config *config.Config
+
+	// Metrics
+	Metrics *metrics.Metrics
 
 	mutex sync.Mutex
 }
@@ -50,14 +53,15 @@ type Event struct {
 	Body   []byte // event json body
 }
 
-func NewHub(rbac map[string][]string) *Hub {
+func NewHub(config *config.Config, metrics *metrics.Metrics) *Hub {
 	return &Hub{
 		Requests:       make(chan Request),
 		Unregister:     make(chan IClient),
 		PublicTopics:   make(map[string]*Topic, 100),
 		PrivateTopics:  make(map[string]map[string]*Topic, 1000),
 		PrefixedTopics: make(map[string]map[string]*Topic, 100),
-		RBAC:           rbac,
+		Config:         config,
+		Metrics:        metrics,
 	}
 }
 
@@ -84,14 +88,14 @@ func (h *Hub) ListenWebsocketEvents() {
 
 // ReceiveMsg handles AMQP messages
 func (h *Hub) ReceiveMsg(msg *kgo.Record) {
-	key_arr := strings.Split(string(msg.Key), ".") // public.ethusdt.depth | private.UIDABC00001.balance
-	scope := key_arr[0]
+	keySplited := strings.Split(string(msg.Key), ".") // public.ethusdt.depth | private.UIDABC00001.balance
+	scope := keySplited[0]
 
 	h.routeMessage(&Event{
 		Scope:  scope,
-		Stream: key_arr[1],
-		Type:   key_arr[2],
-		Topic:  getTopic(scope, key_arr[1], key_arr[2]),
+		Stream: keySplited[1],
+		Type:   keySplited[2],
+		Topic:  getTopic(scope, keySplited[1], keySplited[2]),
 		Body:   msg.Value,
 	})
 }
@@ -150,7 +154,7 @@ func (h *Hub) unsubscribeAll(client IClient) {
 
 	for t, topic := range h.PublicTopics {
 		if topic.unsubscribe(client) {
-			metrics.RecordHubUnsubscription("public", t)
+			h.Metrics.RecordHubUnsubscription("public", t)
 		}
 		if topic.len() == 0 {
 			delete(h.PublicTopics, t)
@@ -160,7 +164,7 @@ func (h *Hub) unsubscribeAll(client IClient) {
 	for k, scope := range h.PrefixedTopics {
 		for t, topic := range scope {
 			if topic.unsubscribe(client) {
-				metrics.RecordHubUnsubscription("prefixed", t)
+				h.Metrics.RecordHubUnsubscription("prefixed", t)
 			}
 
 			if topic.len() == 0 {
@@ -181,7 +185,7 @@ func (h *Hub) unsubscribeAll(client IClient) {
 
 	for t, topic := range topics {
 		if topic.unsubscribe(client) {
-			metrics.RecordHubUnsubscription("private", t)
+			h.Metrics.RecordHubUnsubscription("private", t)
 		}
 		if topic.len() == 0 {
 			delete(topics, t)
@@ -242,7 +246,7 @@ func (h *Hub) subscribePrivate(t string, req *Request) {
 	}
 
 	if topic.subscribe(req.client) {
-		metrics.RecordHubSubscription("private", t)
+		h.Metrics.RecordHubSubscription("private", t)
 		req.client.SubscribePrivate(t)
 	}
 }
@@ -255,13 +259,16 @@ func (h *Hub) subscribePublic(t string, req *Request) {
 	}
 
 	if topic.subscribe(req.client) {
-		metrics.RecordHubSubscription("public", t)
+		h.Metrics.RecordHubSubscription("public", t)
 		req.client.SubscribePublic(t)
 	}
 }
 
 func (h *Hub) premittedRBAC(prefix string, auth Auth) bool {
-	rbac := h.RBAC[prefix]
+	rbac := h.Config.Rango.RbacAdmin
+	if prefix == "system" {
+		rbac = h.Config.Rango.RbacSystem
+	}
 
 	for _, role := range rbac {
 		if role == auth.Role {
@@ -304,7 +311,7 @@ func (h *Hub) subscribePrefixed(prefixed string, req *Request) {
 	}
 
 	if topic.subscribe(req.client) {
-		metrics.RecordHubSubscription("prefixed", prefixed)
+		h.Metrics.RecordHubSubscription("prefixed", prefixed)
 		req.client.SubscribePublic(prefixed)
 	}
 }
@@ -343,7 +350,7 @@ func (h *Hub) unsubscribePrivate(t string, req *Request) {
 	topic, ok := uTopics[t]
 	if ok {
 		if topic.unsubscribe(req.client) {
-			metrics.RecordHubUnsubscription("private", t)
+			h.Metrics.RecordHubUnsubscription("private", t)
 			req.client.UnsubscribePrivate(t)
 		}
 
@@ -368,7 +375,7 @@ func (h *Hub) unsubscribePrefixed(prefixed string, req *Request) {
 	topic, ok := topics[t]
 	if ok {
 		if topic.unsubscribe(req.client) {
-			metrics.RecordHubUnsubscription("prefixed", t)
+			h.Metrics.RecordHubUnsubscription("prefixed", t)
 			req.client.UnsubscribePublic(t)
 		}
 
@@ -383,7 +390,7 @@ func (h *Hub) unsubscribePublic(t string, req *Request) {
 	topic, ok := h.PublicTopics[t]
 	if ok {
 		if topic.unsubscribe(req.client) {
-			metrics.RecordHubUnsubscription("public", t)
+			h.Metrics.RecordHubUnsubscription("public", t)
 			req.client.UnsubscribePublic(t)
 		}
 

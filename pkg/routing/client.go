@@ -12,7 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	msg "github.com/zsmartex/rango/pkg/message"
-	"github.com/zsmartex/rango/pkg/metrics"
 )
 
 const (
@@ -149,7 +148,7 @@ func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	metrics.RecordHubClientNew()
+	client.hub.Metrics.RecordHubClientNew()
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
@@ -240,7 +239,7 @@ func (c *Client) read() {
 	defer func() {
 		log.Debugf("Closing client read (%s)", c.GetAuth().UID)
 		c.hub.Unregister <- c
-		metrics.RecordHubClientClose()
+		c.hub.Metrics.RecordHubClientClose()
 		c.conn.Close()
 	}()
 
