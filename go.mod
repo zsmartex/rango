@@ -10,7 +10,7 @@ require (
 	github.com/prometheus/client_golang v1.6.0
 	github.com/stretchr/testify v1.8.1
 	github.com/twmb/franz-go v1.15.2
-	github.com/zsmartex/pkg/v2 v2.1.20-0.20231116113229-17b5bae096ab
+	github.com/zsmartex/pkg/v2 v2.1.20-0.20231117030839-a864e84d1c30
 	go.uber.org/fx v1.20.1
 )
 
