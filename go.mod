@@ -7,10 +7,11 @@ require (
 	github.com/cockroachdb/errors v1.11.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.4.2
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
 	github.com/stretchr/testify v1.8.1
 	github.com/twmb/franz-go v1.15.2
-	github.com/zsmartex/pkg/v2 v2.1.20-0.20231117030839-a864e84d1c30
+	github.com/zsmartex/pkg/v2 v2.1.20-0.20240107191127-692063aa8666
 	go.uber.org/fx v1.20.1
 )
 
@@ -34,7 +35,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.9.1 // indirect
