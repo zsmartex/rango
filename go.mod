@@ -7,7 +7,7 @@ require (
 	github.com/cockroachdb/errors v1.11.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.4.2
-	github.com/prometheus/client_golang v1.6.0
+	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.8.1
 	github.com/twmb/franz-go v1.15.2
 	github.com/zsmartex/pkg/v2 v2.1.20-0.20231117030839-a864e84d1c30
