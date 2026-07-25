@@ -3,7 +3,7 @@ module github.com/zsmartex/rango
 go 1.21.3
 
 require (
-	github.com/caarlos0/env/v10 v10.0.0
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/cockroachdb/errors v1.11.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.4.2
