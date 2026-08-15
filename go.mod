@@ -9,7 +9,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/prometheus/client_golang v1.6.0
 	github.com/stretchr/testify v1.8.1
-	github.com/twmb/franz-go v1.15.2
+	github.com/twmb/franz-go v1.21.6
 	github.com/zsmartex/pkg/v2 v2.1.20-0.20231117030839-a864e84d1c30
 	go.uber.org/fx v1.20.1
 )
